@@ -40,16 +40,14 @@ class DataStorageServerTest extends FunSuite
     testDataStore.size should equal (numberOfItems)
   }
 
-  var testDataStore: InMemoryDataStore[JSONRecord] = _
+  var testDataStore: InMemoryDataStore = _
   var dss: ActorRef = _
   var driverActor: ActorRef = _
   var answer: Option[String] = None
   
   override def beforeEach = {
-    testDataStore = new InMemoryDataStore[JSONRecord]("testDataStore")
-    dss = actorOf(new DataStorageServer("testService") {
-      override lazy val dataStore = testDataStore 
-    })
+    testDataStore = new InMemoryDataStore("testDataStore")
+    dss = actorOf(new DataStorageServer("testService", testDataStore))
     driverActor = actorOf(new Actor {
       def receive = {
         case msg => (dss !!! msg).await.result match {
