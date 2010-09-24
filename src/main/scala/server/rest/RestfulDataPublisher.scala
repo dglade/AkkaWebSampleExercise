@@ -31,6 +31,7 @@ class RestfulDataPublisher extends Logging {
    *              "stats"   is the comma-separated list of statistics to calculate (default: all available).
    *            The allowed date time formats include milliseconds (Long) and any date time string that can be parsed
    *            by JodaTime.
+   *   list_instruments: Return a list of the symbols of all the financial instruments. 
    *   ping:    Send a "ping" message to each actor and return the responses.
    *   <other>  If any other message is received, an error response is returned.
    * @todo: It would be nice to use an HTML websocket to stream results to the browser more dynamically.
@@ -58,6 +59,10 @@ class RestfulDataPublisher extends Logging {
         log.info("ping result: "+result)
         result
 
+      case "list_instruments" =>
+        log.debug("Requesting a list of all instruments")
+        getAllInstruments(instruments)
+
       case "stats" =>
         log.debug("Requesting statistics for instruments, stats, start, end = "+instruments+", "+stats+", "+start+", "+end)
         getAllDataFor(instruments, stats, start, end)
@@ -74,7 +79,8 @@ class RestfulDataPublisher extends Logging {
       val allCriteria = CriteriaMap().withInstruments(instruments).withStatistics(stats).withStart(start).withEnd(end)
       val results = getStatsFromInstrumentAnalysisServerSupervisors(CalculateStatistics(allCriteria))
       val result = compact(render(JSONMap.toJValue(Map("financial-data" -> results))))
-      log.info("financial data result = "+result.substring(0,100)+"...")
+      val length = if (result.length > 100) 100 else result.length
+      log.info("financial data result = "+result.substring(0, length)+"...")
       result
     } catch {
       case NoWorkersAvailable =>
@@ -89,7 +95,38 @@ class RestfulDataPublisher extends Logging {
         makeErrorString("An unexpected problem occurred during processing the request", 
           th, instruments, stats, start, end)
     }
+    
+  protected[rest] def getAllInstruments(instruments: String) = 
+    try {
+      // Hack! Just grab the first and last letter.
+			val symbolRange = instruments.trim match {
+        case "" => 'A' to 'Z'
+        case s  => s.length match {
+          case 1 => s.charAt(0).toUpper to 'Z'
+          case n => s.charAt(0).toUpper to s.charAt(n-1).toUpper
+        }
+      }
+      val results = getStatsFromInstrumentAnalysisServerSupervisors(GetInstrumentList(symbolRange))
+      log.info("Rest: instruments results: "+results)
+      val result = compact(render(JSONMap.toJValue(Map("instrument-list" -> results))))
+      val length = if (result.length > 200) 200 else result.length
+      log.info("instrument list result = "+result.substring(0,length)+"...")
+      result
+    } catch {
+      case NoWorkersAvailable =>
+        makeAllInstrumentsErrorString("", NoWorkersAvailable)
+      case iae: CriteriaMap.InvalidTimeString => 
+        makeAllInstrumentsErrorString("", iae)
+      case fte: FutureTimeoutException =>
+        makeAllInstrumentsErrorString("Actors timed out", fte)
+      case awsee: AkkaWebSampleExerciseException =>
+        makeAllInstrumentsErrorString("Invalid input", awsee)
+      case th: Throwable => 
+        makeAllInstrumentsErrorString("An unexpected problem occurred during processing the request", th)
+    }
+    
   
+<<<<<<< HEAD
    protected[rest] def getAllInstruments(instruments: String): String = 
     try {
       // Hack! Just grab the first and last letters in the "instruments" string
@@ -119,6 +156,8 @@ class RestfulDataPublisher extends Logging {
           th, instruments)
     }
 
+=======
+>>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
   protected def getStatsFromInstrumentAnalysisServerSupervisors(message: InstrumentCalculationMessages): JValue =
     instrumentAnalysisServerSupervisors match {
       case Nil => error(NoWorkersAvailable)
@@ -138,8 +177,13 @@ class RestfulDataPublisher extends Logging {
     "{\"error\": \"" + (if (message.length > 0) (message + ". ") else "") + th.getMessage + ". Investment instruments = '" + 
       instruments + "', statistics = '" + stats + "', start = '" + start + "', end = '" + end + "'.\"}"
 
+<<<<<<< HEAD
   protected def makeAllInstrumentsErrorString(message: String, th: Throwable, instruments: String) =
     "{\"error\": \"" + (if (message.length > 0) (message + ". ") else "") + th.getMessage + ". Investment instruments = '" + 
       instruments + "'.\"}"
 
+=======
+  protected def makeAllInstrumentsErrorString(message: String, th: Throwable) =
+    "{\"error\": \"Getting all instruments failed. " + (if (message.length > 0) (message + ". ") else "") + th.getMessage + "\"}"
+>>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
 }

@@ -48,10 +48,21 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
       log.info (message)
       self.reply (toJValue(Pair("error", message)))
   }
+
+  protected[persistence] def getData(criteria: JValue): JValue = {
+    (criteria \ "instrument_list") match {
+      case JField(key, JString(value)) => getInstrumentList(value)
+      case _ => getDataForRange(criteria)
+    } 
+  }
   
   // TODO: Support other query criteria besides time ranges.
   protected[persistence] def getDataForRange(criteria: JValue): JValue = {
+<<<<<<< HEAD
     log.debug(actorName + ": GET starting...")
+=======
+    log.debug(actorName + ": Starting getDataForRange:")
+>>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
     val start: DateTime = extractTime(criteria, "start", new DateTime(0))
     val end: DateTime   = extractTime(criteria, "end",   new DateTime)
     try {
@@ -70,6 +81,7 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
     }
   }
 
+<<<<<<< HEAD
   protected[persistence] def getData(criteria: JValue): JValue = {
     (criteria \ "instrument_list") match {
       case JField(key, JString(value)) => getInstrumentList(value)
@@ -77,6 +89,23 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
     }
   } 
 
+=======
+  // Hack!
+  protected[persistence] def getInstrumentList(prefix: String): JValue = {
+    log.debug(actorName + ": Starting getInstrumentList for prefix: "+prefix)
+    dataStore match {
+      case mongo: MongoDBDataStore => 
+        val data = for {
+					json <- mongo.getInstrumentList(prefix)
+        } yield json
+        val result = toJSON(data toList)
+        log.info("DataStorageServer.getInstrumentList returning: "+result)
+        result
+      case _ => throw new RuntimeException("Can't get the instrument list from datastore "+dataStore)
+    }
+  }
+  
+>>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
   protected[persistence] def putData(jsonRecord: JSONRecord) = {
     log.debug(actorName + " PUT: storing JSON: " + jsonShortStr(jsonRecord.toString))
     try {
