@@ -4,8 +4,8 @@
 # Designed to be run in the root directory of the project.
 
 dir=$(dirname $0)
-mongo < $dir/data-import-prep.js    # Create the collections in mongo
-scala $dir/data-import-transform.scala  # Munge the YAML files into JSON files we'll import
+#mongo < $dir/data-import-prep.js    # Create the collections in mongo
+#scala -classpath lib/joda-time-1.6.jar:$CLASSPATH $dir/data-import-transform.scala  # Munge the YAML files into JSON files we'll import
 
 # Import the munged data. Note that it is in files in the datatmp directory.
 for n in {A..Z}

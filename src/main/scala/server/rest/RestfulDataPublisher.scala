@@ -61,6 +61,9 @@ class RestfulDataPublisher extends Logging {
       case "stats" =>
         log.debug("Requesting statistics for instruments, stats, start, end = "+instruments+", "+stats+", "+start+", "+end)
         getAllDataFor(instruments, stats, start, end)
+
+      case "list_instruments" =>
+	      getAllInstruments(instruments)
         
       case x => """{"error": "Unrecognized 'action': """ + action + "\"}"
     }
@@ -69,7 +72,7 @@ class RestfulDataPublisher extends Logging {
   protected[rest] def getAllDataFor(instruments: String, stats: String, start: String, end: String): String = 
     try {
       val allCriteria = CriteriaMap().withInstruments(instruments).withStatistics(stats).withStart(start).withEnd(end)
-      val results = getStatsFromInstrumentAnalysisServerSupervisors(allCriteria)
+      val results = getStatsFromInstrumentAnalysisServerSupervisors(CalculateStatistics(allCriteria))
       val result = compact(render(JSONMap.toJValue(Map("financial-data" -> results))))
       log.info("financial data result = "+result.substring(0,100)+"...")
       result
@@ -87,11 +90,40 @@ class RestfulDataPublisher extends Logging {
           th, instruments, stats, start, end)
     }
   
-  protected def getStatsFromInstrumentAnalysisServerSupervisors(allCriteria: CriteriaMap): JValue =
+   protected[rest] def getAllInstruments(instruments: String): String = 
+    try {
+      // Hack! Just grab the first and last letters in the "instruments" string
+      // and use them as the range, but handle the case of 0 or 1 characters.
+      val symbolRange = instruments.trim match {
+        case "" => 'A' to 'Z'  // default
+        case s  => s.length match {
+	        case 1 => 'A' to s.charAt(0).toUpper  // 1 character; use as end
+	        case n => s.charAt(0).toUpper to s.charAt(n-1).toUpper
+  	    }
+      }
+      val results = getStatsFromInstrumentAnalysisServerSupervisors(GetInstrumentList(symbolRange))
+      val result = compact(render(JSONMap.toJValue(Map("instrument-list" -> results))))
+      log.info("instrument list result = "+result.substring(0,100)+"...")
+      result
+    } catch {
+      case NoWorkersAvailable =>
+        makeAllInstrumentsErrorString("", NoWorkersAvailable, instruments)
+      case iae: CriteriaMap.InvalidTimeString => 
+        makeAllInstrumentsErrorString("", iae, instruments)
+      case fte: FutureTimeoutException =>
+        makeAllInstrumentsErrorString("Actors timed out", fte, instruments)
+      case awsee: AkkaWebSampleExerciseException =>
+        makeAllInstrumentsErrorString("Invalid input", awsee, instruments)
+      case th: Throwable => 
+        makeAllInstrumentsErrorString("An unexpected problem occurred during processing the request", 
+          th, instruments)
+    }
+
+  protected def getStatsFromInstrumentAnalysisServerSupervisors(message: InstrumentCalculationMessages): JValue =
     instrumentAnalysisServerSupervisors match {
       case Nil => error(NoWorkersAvailable)
       case supervisors => supervisors map { supervisor =>
-        (supervisor !! CalculateStatistics(allCriteria)) match {
+        (supervisor !! message) match {
           case Some(x) => JSONMap.toJValue(x)
           case None => JNothing
         }
@@ -105,5 +137,9 @@ class RestfulDataPublisher extends Logging {
       instruments: String, stats: String, start: String, end: String) =
     "{\"error\": \"" + (if (message.length > 0) (message + ". ") else "") + th.getMessage + ". Investment instruments = '" + 
       instruments + "', statistics = '" + stats + "', start = '" + start + "', end = '" + end + "'.\"}"
+
+  protected def makeAllInstrumentsErrorString(message: String, th: Throwable, instruments: String) =
+    "{\"error\": \"" + (if (message.length > 0) (message + ". ") else "") + th.getMessage + ". Investment instruments = '" + 
+      instruments + "'.\"}"
 
 }

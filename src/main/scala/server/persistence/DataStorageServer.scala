@@ -50,7 +50,7 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
   }
   
   // TODO: Support other query criteria besides time ranges.
-  protected[persistence] def getData(criteria: JValue): JValue = {
+  protected[persistence] def getDataForRange(criteria: JValue): JValue = {
     log.debug(actorName + ": GET starting...")
     val start: DateTime = extractTime(criteria, "start", new DateTime(0))
     val end: DateTime   = extractTime(criteria, "end",   new DateTime)
@@ -70,6 +70,13 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
     }
   }
 
+  protected[persistence] def getData(criteria: JValue): JValue = {
+    (criteria \ "instrument_list") match {
+      case JField(key, JString(value)) => getInstrumentList(value)
+      case _ => getDataForRange(criteria)
+    }
+  } 
+
   protected[persistence] def putData(jsonRecord: JSONRecord) = {
     log.debug(actorName + " PUT: storing JSON: " + jsonShortStr(jsonRecord.toString))
     try {
@@ -83,6 +90,15 @@ class DataStorageServer(val serviceName: String, val dataStore: DataStore)
     }
   }
 
+  protected[persistence] def getInstrumentList(prefix: String): JValue = dataStore match {
+  case mongo: MongoDBDataStore => 
+    val data = for {
+      json <- mongo.getInstrumentList(prefix)
+    } yield json
+    toJSON(data toList)
+  case _ => throw new RuntimeException("Can't get the instrument list from datastore "+dataStore)
+  }
+      
   protected def extractTime(json: JValue, key: String, default: => DateTime): DateTime = (json \ key) match {
     case JField(key, value) => value match {
       case JInt(millis) => new DateTime(millis.toLong)

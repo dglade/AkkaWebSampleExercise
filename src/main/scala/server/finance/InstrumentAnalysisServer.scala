@@ -19,6 +19,8 @@ import net.lag.logging.Level
 sealed trait InstrumentCalculationMessages
 
 case class CalculateStatistics(criteria: CriteriaMap) extends InstrumentCalculationMessages
+
+case class GetInstrumentList(range: scala.collection.immutable.NumericRange[Char]) extends InstrumentCalculationMessages
       
 /**
  * InstrumentAnalysisServer is a worker that calculates (or simply fetches...) statistics for financial instruments.
@@ -43,6 +45,9 @@ class InstrumentAnalysisServer(val service: String, dataStorageServer: ActorRef)
 
   def defaultHandler: PartialFunction[Any, Unit] = {
     case CalculateStatistics(criteria) => self.reply(helper.calculateStatistics(criteria))
+
+    case GetInstrumentList(range) => self.reply(helper.getInstrumentList(range))
+
   }
   
   override protected def subordinatesToPing: List[ActorRef] = List(dataStorageServer)
@@ -62,6 +67,14 @@ class InstrumentAnalysisServerHelper(dataStorageServer: => ActorRef) {
        fetchPrices(instruments, statistics, start, end)
     case _ =>
       Pair("error", "Invalid criteria: " + criteria)
+  }
+
+  def getInstrumentList(range: scala.collection.immutable.NumericRange[Char]): JValue = {
+    (dataStorageServer !! Get(Pair("instrument_list", range.toList.head.toString))) match {
+      case None => 
+        Pair("warning", "Nothing returned for query (range) = (" + range + ")")
+      case Some(result) => result
+    }
   }
 
   /**
@@ -94,6 +107,15 @@ class InstrumentAnalysisServerHelper(dataStorageServer: => ActorRef) {
       case x => x
     }
     val fullResults = toJValue(Map("criteria" -> toNiceFormat(instruments, statistics, start, end), "results" -> results))
+    fullResults
+  }
+
+  def formatInstrumentListResults(result: JValue, range: scala.collection.immutable.NumericRange[Char]): JValue = {
+    val results = result match {
+      case JNothing => toJValue(Nil)  // Use an empty array as the result
+      case x => x
+    }
+    val fullResults = toJValue(Map("range" -> range.toString, "results" -> results))
     fullResults
   }
   
