@@ -19,10 +19,7 @@ import net.lag.logging.Level
 sealed trait InstrumentCalculationMessages
 
 case class CalculateStatistics(criteria: CriteriaMap) extends InstrumentCalculationMessages
-<<<<<<< HEAD
 
-=======
->>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
 case class GetInstrumentList(range: scala.collection.immutable.NumericRange[Char]) extends InstrumentCalculationMessages
       
 /**
@@ -48,13 +45,9 @@ class InstrumentAnalysisServer(val service: String, dataStorageServer: ActorRef)
 
   def defaultHandler: PartialFunction[Any, Unit] = {
     case CalculateStatistics(criteria) => self.reply(helper.calculateStatistics(criteria))
-<<<<<<< HEAD
 
     case GetInstrumentList(range) => self.reply(helper.getInstrumentList(range))
 
-=======
-    case GetInstrumentList(range) => self.reply(helper.getInstrumentList(range))
->>>>>>> 12b0c4b5fa46c4f71ba330492b5852d53b6e4db7
   }
   
   override protected def subordinatesToPing: List[ActorRef] = List(dataStorageServer)
@@ -70,8 +63,10 @@ class InstrumentAnalysisServer(val service: String, dataStorageServer: ActorRef)
 class InstrumentAnalysisServerHelper(dataStorageServer: => ActorRef) {
   
   def calculateStatistics(criteria: CriteriaMap): JValue = criteria match {
-    case CriteriaMap(instruments, statistics, start, end) => fetchPrices(instruments, statistics, start, end)
-    case _ => Pair("error", "Invalid criteria: " + criteria)
+    case CriteriaMap(instruments, statistics, start, end) => 
+       fetchPrices(instruments, statistics, start, end)
+    case _ =>
+      Pair("error", "Invalid criteria: " + criteria)
   }
 
   def getInstrumentList(range: scala.collection.immutable.NumericRange[Char]): JValue = {
@@ -98,16 +93,6 @@ class InstrumentAnalysisServerHelper(dataStorageServer: => ActorRef) {
     }
   }
   
-  def getInstrumentList(range: scala.collection.immutable.NumericRange[Char]): JValue = {
-    (dataStorageServer !! Get(Pair("instrument_list", range.toList.head.toString))) match {
-      case None => 
-        Pair("warning", "Nothing returned for instrument list in range "+range)
-      case Some(result) => 
-					 log.info("IS: result = "+result)
-					 result
-    }
-  }
-
   /**
    * A "hook" method that could be used to filter by instrument (and maybe statistics) criteria. 
    * However, in general, it would be better to filter in the DB query itself!

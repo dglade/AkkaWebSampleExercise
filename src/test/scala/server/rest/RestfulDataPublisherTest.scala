@@ -40,6 +40,8 @@ class RestfulDataPublisherTest extends FunSuite
   def makeJSON(list: List[JSONRecord]): JValue = list reduceLeft (_ ++ _) json
 
   def makeExpected(result: JValue): JValue = JSONMap toJValue Map("financial-data" -> result)
+
+//  def makeExpectedInstrumentList(result: JValue): JValue = JSONMap toJValue Map("instrument-list" -> result)
   
   var returnedJSON: JValue = _
   var ias: ActorRef = _
@@ -63,6 +65,11 @@ class RestfulDataPublisherTest extends FunSuite
     returnedJSON = makeJSON (List(js(0), js(3), js(2), js(4), js(1)))
     restfulPublisher.getAllDataFor("A,B,C","price", "0", nowms.toString) should equal (makeJSONString(makeExpected(returnedJSON)))
   }
+
+//  test ("getAllInstruments returns a JSON string containing all data when all data matches the query criteria") {
+//    returnedJSON = makeJSON (List(js(0), js(3), js(2), js(4), js(1)))
+//    restfulPublisher.getAllInstruments("A") should equal ("")  //(makeJSONString(makeExpectedInstrumentList(returnedJSON)))
+//  }
   
   test ("getAllDataFor returns a JSON string containing all data that matches the time criteria") {
     // Return all data for the specified time range, low (inclusive) to high (exclusive)
