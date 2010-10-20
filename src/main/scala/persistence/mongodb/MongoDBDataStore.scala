@@ -9,7 +9,9 @@ import org.joda.time.format._
 import net.liftweb.json.JsonAST._
 import net.liftweb.json.JsonDSL._
 import com.osinka.mongodb._
-import com.mongodb.{BasicDBObject, DBCursor, Mongo, MongoException}
+import com.mongodb.{BasicDBObject, BasicDBList, DBCursor, Mongo, MongoException}
+import scala.collection.JavaConversions
+
 // import com.novus.casbah.mongodb.Imports._
 
 /**
@@ -53,11 +55,16 @@ class MongoDBDataStore(
     case Some(dbo) => Some(JSONRecord(dbo.toMap))
   }
   
-  def range(from: DateTime, to: DateTime, maxNum: Int): Iterable[JSONRecord] = try {
+  def range(from: DateTime, to: DateTime, otherCriteria: Map[String,Any], maxNum: Int): Iterable[JSONRecord] = try {
     val qb = new com.mongodb.QueryBuilder
     qb.and(JSONRecord.timestampKey).
       greaterThanEquals(dateTimeToAnyValue(from)).
       lessThanEquals(dateTimeToAnyValue(to))
+    if (otherCriteria.contains("stock_symbol")) {
+      val myBasicDBList = new BasicDBList()
+      myBasicDBList.addAll(JavaConversions.asList(otherCriteria("stock_symbol").asInstanceOf[List[AnyRef]]))
+      qb.and("stock_symbol").in(myBasicDBList)
+    }
     val query = qb.get
     val cursor = collection.find(query).sort(new BasicDBObject(JSONRecord.timestampKey, 1))
     log.info("db name: query, cursor.count, maxNum: "+collection.getFullName+", "+query+", "+cursor.count+", "+maxNum)
